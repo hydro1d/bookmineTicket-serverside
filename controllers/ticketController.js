@@ -123,7 +123,7 @@ exports.getTicketById = async (req, res) => {
   }
 };
 
-// @desc    Update ticket details (resets status to pending)
+// @desc    Update ticket details
 // @route   PUT /api/tickets/:id
 // @access  Private/Vendor
 exports.updateTicket = async (req, res) => {
@@ -134,7 +134,6 @@ exports.updateTicket = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Ticket not found' });
     }
 
-    // Ensure user is the ticket owner (vendor)
     if (ticket.vendor.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorized to edit this ticket' });
     }
@@ -144,7 +143,7 @@ exports.updateTicket = async (req, res) => {
     }
 
     const fieldsToUpdate = { ...req.body, verificationStatus: 'pending' };
-    delete fieldsToUpdate.vendor; // Readonly protection
+    delete fieldsToUpdate.vendor;
 
     ticket = await Ticket.findByIdAndUpdate(req.params.id, fieldsToUpdate, {
       new: true,
@@ -184,6 +183,112 @@ exports.deleteTicket = async (req, res) => {
     res.json({
       success: true,
       message: 'Ticket deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get all tickets (Admin only)
+// @route   GET /api/tickets/admin-all
+// @access  Private/Admin
+exports.getAdminAllTickets = async (req, res) => {
+  try {
+    const tickets = await Ticket.find({})
+      .populate('vendor', 'name email status')
+      .sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      tickets
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Approve/Reject Ticket (Admin only)
+// @route   PUT /api/tickets/:id/status
+// @access  Private/Admin
+exports.updateTicketStatus = async (req, res) => {
+  try {
+    const { status } = req.body; // approved, rejected
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    const ticket = await Ticket.findByIdAndUpdate(
+      req.params.id,
+      { verificationStatus: status },
+      { new: true }
+    );
+
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    res.json({
+      success: true,
+      ticket
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Toggle ticket advertisement status (Admin only)
+// @route   PUT /api/tickets/:id/advertise
+// @access  Private/Admin
+exports.toggleAdvertiseTicket = async (req, res) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+
+    if (!ticket) {
+      return res.status(404).json({ success: false, message: 'Ticket not found' });
+    }
+
+    if (ticket.verificationStatus !== 'approved') {
+      return res.status(400).json({ success: false, message: 'Only approved tickets can be advertised' });
+    }
+
+    // Toggle logic
+    const willAdvertise = !ticket.isAdvertised;
+
+    if (willAdvertise) {
+      // Check if we already have 6 advertised tickets
+      const advertisedCount = await Ticket.countDocuments({ isAdvertised: true });
+      if (advertisedCount >= 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Maximum limit of 6 advertised tickets reached. Unadvertise others first.'
+        });
+      }
+    }
+
+    ticket.isAdvertised = willAdvertise;
+    await ticket.save();
+
+    res.json({
+      success: true,
+      ticket
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get advertised tickets (Homepage)
+// @route   GET /api/tickets/advertised
+// @access  Public
+exports.getAdvertisedTickets = async (req, res) => {
+  try {
+    const tickets = await Ticket.find({
+      verificationStatus: 'approved',
+      isAdvertised: true
+    }).populate('vendor', 'name email status').limit(6);
+
+    res.json({
+      success: true,
+      tickets
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
