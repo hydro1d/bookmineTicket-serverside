@@ -6,23 +6,21 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/errorMiddleware');
 
-// Load environment variables
 dotenv.config();
 
-// Connect to database
+// Connect Mongoose Database
 connectDB();
 
 const app = express();
 
-// Middlewares
 app.use(helmet({
-  contentSecurityPolicy: false // Allow swagger/react resource requests
+  contentSecurityPolicy: false
 }));
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Route definitions
+// Register Routers
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tickets', require('./routes/ticketRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
@@ -30,16 +28,18 @@ app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
-// Welcome route
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to TicketBari API Platform Services' });
+  res.json({
+    name: 'TicketBari API Gateway Platform',
+    status: 'operational',
+    version: '1.0.0'
+  });
 });
 
-// Error handling middleware
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running in development mode on port ${PORT}`);
+  console.log(`TicketBari server running on port ${PORT}`);
 });
