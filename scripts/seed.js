@@ -41,7 +41,7 @@ const ticketsData = [
   {
     title: 'GreenLine Sleeper Express Bus',
     from: 'Dhaka',
-    to: 'Cox's Bazar',
+    to: "Cox's Bazar",
     transportType: 'bus',
     price: 1800,
     quantity: 40,
@@ -79,7 +79,7 @@ const ticketsData = [
   },
   {
     title: 'Saint Martin Cruise Ferry',
-    from: 'Cox's Bazar',
+    from: "Cox's Bazar",
     to: 'Saint Martin',
     transportType: 'ferry',
     price: 1200,
@@ -153,8 +153,14 @@ const seedDatabase = async () => {
     await User.deleteMany();
     await Ticket.deleteMany();
 
+    // Hash passwords manually because insertMany bypasses Mongoose pre-save hooks
+    const hashedUsersData = usersData.map(user => ({
+      ...user,
+      password: bcrypt.hashSync(user.password, 10)
+    }));
+
     // Insert Users
-    const createdUsers = await User.insertMany(usersData);
+    const createdUsers = await User.insertMany(hashedUsersData);
     console.log('Seed: Users seeded.');
 
     // Fetch the vendor user IDs
